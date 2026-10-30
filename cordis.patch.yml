@@ -1,0 +1,17 @@
+# 仅保留左侧边栏插件：Codex 风格的自绘工作区/会话树。
+- insert:
+    - id: dsh-best-workspace
+      name: '@zhaoyang10/dsh-best-workspace'
+
+# 修复 macOS 上"添加工作区"卡死：directory-picker-auto 在 darwin+loopback 下
+# 必选 native 后端，其 osascript 调用 AppKit 模态循环实测永不返回，pick() 挂死。
+# 按宿主约定改为直接组合 browse 交互对（宿主+客户端面），绕开 native：
+# 参见 dsh-host-directory-picker-auto 文档"pinning an interaction remains
+# composing that pair directly instead of this row"。
+- id: directory-picker
+  disabled: true
+- insert:
+    - id: directory-picker-browse-backend
+      name: '@deepseek-ai/dsh-host-directory-picker-browse'
+    - id: directory-picker-browse-surface
+      name: '@deepseek-ai/dsh-client-ui-directory-picker-browse'

@@ -1,0 +1,39 @@
+name: 生成 GitHub Release
+
+on:
+  push:
+    tags:
+      - "v*"
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+concurrency:
+  group: release-${{ github.ref }}
+  cancel-in-progress: false
+
+jobs:
+  release:
+    name: 创建或更新版本说明
+    runs-on: ubuntu-latest
+    steps:
+      - name: 检出代码
+        uses: actions/checkout@v6
+        with:
+          fetch-depth: 0
+
+      - name: 创建或更新 GitHub Release（自动生成说明）
+        env:
+          GH_TOKEN: ${{ github.token }}
+          TAG: ${{ github.ref_name }}
+          REPO: ${{ github.repository }}
+        run: |
+          set -euo pipefail
+          if gh release view "$TAG" >/dev/null 2>&1; then
+            # gh release edit 不支持 --generate-notes，改用 Release Notes API 重新生成说明。
+            body=$(gh api "repos/$REPO/releases/generate-notes" -X POST -f tag_name="$TAG" --jq .body)
+            gh release edit "$TAG" --title "$TAG" --notes "$body"
+          else
+            gh release create "$TAG" --verify-tag --title "$TAG" --generate-notes
+          fi

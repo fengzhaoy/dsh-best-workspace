@@ -1,0 +1,6 @@
+{
+  "meta": {
+    "title": "Codex Sidebar",
+    "description": "A Codex-style left sidebar with a custom workspace/session tree: grouping, pinning, expand/collapse, drag reordering, plus session rename, unread, archive, delete, and context menus."
+  }
+}

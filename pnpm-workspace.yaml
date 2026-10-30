@@ -1,0 +1,52 @@
+autoInstallPeers: false
+
+overrides:
+  ansi-regex: 5.0.1
+
+packageExtensions:
+  '@deepseek-ai/dsh-client-ui-primitives':
+    dependencies:
+      '@shikijs/langs': ^4.3.1
+      anser: ^2.3.5
+      clsx: ^2.0.0
+      diff: ^9.0.0
+      katex: ^0.16.47
+      mdast-util-from-markdown: ^2.0.3
+      mdast-util-gfm: ^3.1.0
+      mdast-util-math: ^3.0.0
+      micromark-core-commonmark: ^2.0.3
+      micromark-extension-gfm: ^3.0.0
+      micromark-extension-math: ^3.1.0
+      micromark-factory-space: ^2.0.1
+      micromark-util-character: ^2.1.1
+      micromark-util-classify-character: ^2.0.1
+      micromark-util-sanitize-uri: ^2.0.1
+      micromark-util-symbol: ^2.0.1
+      shiki: ^4.3.1
+      simple-icons: 16.31.0
+      '@deepseek-ai/dsh-util-code-language': 0.1.7-rc.2
+  # 0.2.0-rc.1 的 client-store 直接 import zustand v4 子路径与 immer，
+  # 却没有在 dependencies/peerDependencies 里声明；补上才能被解析。
+  '@deepseek-ai/dsh-client-store':
+    dependencies:
+      immer: ^10.1.1
+      zustand: ^4.4.7
+
+allowBuilds:
+  esbuild: true
+  protobufjs: false
+  koffi: false
+
+# 预发布版本豁免（minimumReleaseAge 安全期）。
+#
+# 规则（实测于 pnpm 11）：名字部分支持 glob；但名字上**只要挂了版本**（如 a@1.2.3）
+# 就会在名字命中后立即返回该版本集合，忽略版本而命中的条目由此失效。
+# 因此这里把「整个域」和「精确版本」拆成两组，不要混写。
+minimumReleaseAgeExclude:
+  # DSH 宿主全域豁免。
+  - '@deepseek-ai/*'
+  # @deepseek-ai 下不属于 DSH 运行时版本流的工具包，只豁免精确版本
+  - '@deepseek-ai/cordis@4.0.5'
+  - '@deepseek-ai/cordis-plugin-loader@1.0.6'
+  - '@deepseek-ai/cosmokit@1.8.6'
+  - '@deepseek-ai/schemastery@3.18.5'
