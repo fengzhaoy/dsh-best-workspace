@@ -4715,6 +4715,8 @@ import * as _deepseek_ai_dsh_client_ui_primitives from "@deepseek-ai/dsh-client-
 			"workspace.archiveConfirm": "全部归档",
 			"workspace.archivePending": "正在归档会话…",
 			"workspace.openPath": "在资源管理器中打开",
+			"workspace.openPathUnavailable": "当前宿主不支持在文件管理器中显示目录。",
+			"workspace.openPathFailed": "无法在文件管理器中显示该目录。",
 			"workspace.delete": "移除项目",
 			"workspace.deleteDescription": "将把“{name}”从项目列表中移除。文件夹和会话记录会保留。",
 			"workspace.deletePending": "正在移除项目…",
@@ -5014,6 +5016,8 @@ import * as _deepseek_ai_dsh_client_ui_primitives from "@deepseek-ai/dsh-client-
 			"workspace.pinned": "Pinned",
 			"workspace.pinnedEmpty": "Drag a project here to pin it",
 			"workspace.openPath": "Open in file explorer",
+			"workspace.openPathUnavailable": "This host cannot reveal folders in the file manager.",
+			"workspace.openPathFailed": "Could not reveal this folder in the file manager.",
 			"workspace.delete": "Remove project",
 			"workspace.deleteDescription": "This removes “{name}” from the project list. The folder and conversation records remain.",
 			"workspace.deletePending": "Removing project…",
@@ -5307,7 +5311,7 @@ function SidebarMoreMenu(props: any) {
 	)
 }
 
-export const inject = ['slots', 'sessions', 'workspaces', 'layout', 'locale', 'connection', 'inputTriggers', 'conversation']
+export const inject = ['slots', 'sessions', 'workspaces', 'layout', 'locale', 'connection', 'inputTriggers', 'conversation', 'remote', 'remote.session']
 
 /** 只注册左侧边栏：接管 sidebar.workspaces，使用宿主工作区与会话服务。 */
 export function apply(ctx: ClientContext): void {
@@ -5344,12 +5348,18 @@ export function apply(ctx: ClientContext): void {
 			}
 		})
 	}
+	/**
+	 * 在文件管理器中显示目录。
+	 * 走宿主的 session Remote（openWorkspacePath + action: 'reveal'）——官方
+	 * ui-open-in-app 用的也是这一条；connection.api.host.openPath 在 Web 宿主上
+	 * 根本没有实现，调用必然失败。
+	 */
 	const openPath = async (path: string) => {
-		const connection: any = ctx.get('connection' as never)
-		const open = connection?.api?.host?.openPath
-		if (typeof open !== 'function') throw new UserFacingError('当前宿主不支持打开目录。')
-		const response = await open({ path })
-		if (!response?.result?.ok) throw new UserFacingError('打开目录失败。')
+		const remote = (ctx as any).remote?.session
+		const reveal = remote?.openWorkspacePath
+		if (typeof reveal !== 'function') throw new UserFacingError(t('workspace.openPathUnavailable'))
+		const response = await reveal.call(remote, { path, action: 'reveal' })
+		if (!response?.ok) throw new UserFacingError(t('workspace.openPathFailed'))
 	}
 	const startSession = (workspaceId?: string) => {
 		void startSidebarSession(ctx, workspaceId)
