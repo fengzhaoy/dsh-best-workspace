@@ -1037,6 +1037,10 @@ import * as _deepseek_ai_dsh_client_ui_primitives from "@deepseek-ai/dsh-client-
 		}
 		/** 工作区清单变化后清理失效归属，但保留空分组供用户继续使用。 */
 		function pruneWorkspaceGroups(groups, validIds) {
+			if (validIds.length === 0) return groups.map((group) => ({
+				...group,
+				workspaceIds: [...group.workspaceIds]
+			}));
 			const valid = new Set(validIds);
 			return groups.map((group) => ({
 				...group,
@@ -1058,6 +1062,7 @@ import * as _deepseek_ai_dsh_client_ui_primitives from "@deepseek-ai/dsh-client-
 		}
 		/** 仅在宿主完整基线就绪后清理已经不存在的工作区，避免加载中的临时列表抹掉持久化置顶。 */
 		function prunePinnedWorkspaceIds(ids, validIds) {
+			if (validIds.length === 0) return [...ids];
 			const valid = new Set(validIds);
 			const next = ids.filter((id) => valid.has(id));
 			return next.length === ids.length ? [...ids] : next;
@@ -2410,6 +2415,7 @@ import * as _deepseek_ai_dsh_client_ui_primitives from "@deepseek-ai/dsh-client-
 			(0, react.useEffect)(() => {
 				if (!baselinesReady) return;
 				const validIds = workspaces.items.map((workspace) => String(workspace.workspaceId));
+				if (validIds.length === 0) return;
 				const nextPinned = prunePinnedWorkspaceIds(pinnedWorkspaceIdsRef.current, validIds);
 				const nextGroups = pruneWorkspaceGroups(workspaceGroupsRef.current, validIds);
 				if (!sameIds(pinnedWorkspaceIdsRef.current, nextPinned)) {
@@ -2707,6 +2713,12 @@ import * as _deepseek_ai_dsh_client_ui_primitives from "@deepseek-ai/dsh-client-
 						submenu: moveTargets
 					},
 					{
+						id: "copyPath",
+						label: t("workspace.copyPath"),
+						icon: /* @__PURE__ */ (0, react_jsx_runtime.jsx)(IconCopyOutlineMedium, { size: 16 }),
+						disabled: workspace.path === void 0
+					},
+					{
 						id: "openPath",
 						label: t("workspace.openPath"),
 						icon: /* @__PURE__ */ (0, react_jsx_runtime.jsx)(IconFolderOpenOutlineMedium, { size: 16 })
@@ -2754,6 +2766,10 @@ import * as _deepseek_ai_dsh_client_ui_primitives from "@deepseek-ai/dsh-client-
 						sessionIds: [...workspace.visibleIds]
 					});
 					setError(void 0);
+					setMenu(void 0);
+				}
+				if (id === "copyPath") {
+					copy(workspace.path);
 					setMenu(void 0);
 				}
 				if (id === "openPath") openPathImmediately(workspace.path);
@@ -4715,6 +4731,7 @@ import * as _deepseek_ai_dsh_client_ui_primitives from "@deepseek-ai/dsh-client-
 			"workspace.archiveConfirm": "全部归档",
 			"workspace.archivePending": "正在归档会话…",
 			"workspace.openPath": "在资源管理器中打开",
+			"workspace.copyPath": "复制当前工作目录",
 			"workspace.openPathUnavailable": "当前宿主不支持在文件管理器中显示目录。",
 			"workspace.openPathFailed": "无法在文件管理器中显示该目录。",
 			"workspace.delete": "移除项目",
@@ -5016,6 +5033,7 @@ import * as _deepseek_ai_dsh_client_ui_primitives from "@deepseek-ai/dsh-client-
 			"workspace.pinned": "Pinned",
 			"workspace.pinnedEmpty": "Drag a project here to pin it",
 			"workspace.openPath": "Open in file explorer",
+			"workspace.copyPath": "Copy working directory",
 			"workspace.openPathUnavailable": "This host cannot reveal folders in the file manager.",
 			"workspace.openPathFailed": "Could not reveal this folder in the file manager.",
 			"workspace.delete": "Remove project",
