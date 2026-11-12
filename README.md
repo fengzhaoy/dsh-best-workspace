@@ -94,7 +94,8 @@ dsh plugin --profile web remove ds-bot          # 以及其他接管左侧栏的
 
 ## 数据与隐私
 
-- **置顶与分组**通过宿主端点 `/api/dsh-codex-ui/preferences`（`GET` / `HEAD` / `PUT`）持久化，写入 profile 目录下的 `.dsh-codex-ui-preferences.json`，串行写入 + 原子重命名，请求体上限 32 KB，字段逐个校验。
+- **置顶与分组**通过宿主端点 `/api/dsh-best-workspace/preferences`（`GET` / `HEAD` / `PUT`）持久化，写入 profile 目录下的 `.dsh-best-workspace-preferences.json`，串行写入 + 原子重命名，请求体上限 32 KB，字段逐个校验。
+- **旧存档迁移**：升级后首次启动会自动把旧文件名（codex-ui 时代）里的置顶与分组复制到新文件，**旧文件保留不删**——降级回旧版本时配置依然在。浏览器 localStorage 的置顶、分组、展开状态同理，均按需迁移。
 - **未读标记与输入历史**只存在当前浏览器的 `localStorage`，不跨浏览器 / 机器同步。输入历史按会话目录分桶，可随时清除浏览器数据。
 - **搜索**完全在本地完成，不发请求、不写偏好文件。
 - 插件**不写会话记录**，也不改动项目文件；归档、删除、分叉、移动都是宿主公共服务操作。

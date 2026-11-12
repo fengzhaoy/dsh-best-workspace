@@ -271,7 +271,7 @@ import * as _deepseek_ai_dsh_client_ui_primitives from "@deepseek-ai/dsh-client-
 		}
 		//#endregion
 		//#region src/client/tree-expansion.ts
-		const WORKSPACE_EXPANSION_STORAGE_KEY = "dsh-codex-ui.workspace-expansion.v1";
+		const WORKSPACE_EXPANSION_STORAGE_KEY = "dsh-best-workspace.workspace-expansion.v1";
 		const MAX_EXPANSION_ENTRIES = 500;
 		const MAX_EXPANSION_KEY_LENGTH = 512;
 		function browserStorage() {
@@ -290,7 +290,14 @@ import * as _deepseek_ai_dsh_client_ui_primitives from "@deepseek-ai/dsh-client-
 		function readTreeExpansionState(storage, key) {
 			if (storage === void 0) return {};
 			try {
-				return parseTreeExpansionState(JSON.parse(storage.getItem(key) ?? "{}"));
+				const current = storage.getItem(key);
+				if (current !== null && current !== void 0) return parseTreeExpansionState(JSON.parse(current));
+				const legacyKey = key.replace(/^dsh-best-workspace\./, "dsh-codex-ui.");
+				if (legacyKey === key) return {};
+				const legacy = storage.getItem(legacyKey);
+				if (legacy === null || legacy === void 0) return {};
+				storage.setItem(key, legacy);
+				return parseTreeExpansionState(JSON.parse(legacy));
 			} catch {
 				return {};
 			}
@@ -874,7 +881,7 @@ import * as _deepseek_ai_dsh_client_ui_primitives from "@deepseek-ai/dsh-client-
 		}
 		//#endregion
 		//#region src/business-api.ts
-		const CODEX_UI_API_BASE = "/api/dsh-codex-ui";
+		const CODEX_UI_API_BASE = "/api/dsh-best-workspace";
 		const CODEX_UI_API_ENDPOINTS = Object.freeze({
 			connectors: `${CODEX_UI_API_BASE}/connectors`,
 			dependencies: `${CODEX_UI_API_BASE}/dependencies`,
@@ -1053,8 +1060,8 @@ import * as _deepseek_ai_dsh_client_ui_primitives from "@deepseek-ai/dsh-client-
 		//#endregion
 		//#region src/client/pinned-workspaces.ts
 		/** 浏览器本地持久化键；用于工作区偏好的首帧恢复与 Host 故障兜底。 */
-		const PINNED_WORKSPACES_STORAGE_KEY = "dsh-codex-ui.pinned-workspace-ids";
-		const WORKSPACE_GROUPS_STORAGE_KEY = "dsh-codex-ui.workspace-groups.v1";
+		const PINNED_WORKSPACES_STORAGE_KEY = "dsh-best-workspace.pinned-workspace-ids";
+		const WORKSPACE_GROUPS_STORAGE_KEY = "dsh-best-workspace.workspace-groups.v1";
 		const WORKSPACE_PREFERENCES_ENDPOINT = CODEX_UI_API_ENDPOINTS.preferences;
 		/** 清理无效或重复的工作区标识。 */
 		function normalizePinnedWorkspaceIds(ids) {
@@ -1141,11 +1148,30 @@ import * as _deepseek_ai_dsh_client_ui_primitives from "@deepseek-ai/dsh-client-
 		function togglePinnedWorkspace(ids, workspaceId) {
 			return ids.includes(workspaceId) ? ids.filter((id) => id !== workspaceId) : [...ids, workspaceId];
 		}
+		/**
+		 * 读 localStorage：优先新键，缺失时读旧键（codex-ui 时代）并迁入新键。
+		 * 旧键保留不删，降级回旧版本时仍可用。
+		 */
+		function readMigratedItem(storage, key) {
+			if (storage === void 0) return null;
+			const current = storage.getItem(key);
+			if (current !== null && current !== void 0) return current;
+			const legacyKey = key.replace(/^dsh-best-workspace\./, "dsh-codex-ui.");
+			if (legacyKey === key) return null;
+			try {
+				const legacy = storage.getItem(legacyKey);
+				if (legacy === null || legacy === void 0) return null;
+				storage.setItem(key, legacy);
+				return legacy;
+			} catch {
+				return null;
+			}
+		}
 		/** 从浏览器本地存储读取置顶工作区；损坏数据按空列表处理。 */
 		function readPinnedWorkspaceIds(storage) {
 			if (storage === void 0) return [];
 			try {
-				const value = JSON.parse(storage.getItem("dsh-codex-ui.pinned-workspace-ids") ?? "[]");
+				const value = JSON.parse(readMigratedItem(storage, PINNED_WORKSPACES_STORAGE_KEY) ?? "[]");
 				return Array.isArray(value) && value.every((id) => typeof id === "string") ? normalizePinnedWorkspaceIds(value) : [];
 			} catch {
 				return [];
@@ -1165,7 +1191,7 @@ import * as _deepseek_ai_dsh_client_ui_primitives from "@deepseek-ai/dsh-client-
 				pendingHostSync: false
 			};
 			try {
-				const value = JSON.parse(storage.getItem("dsh-codex-ui.workspace-groups.v1") ?? "{\"version\":1,\"workspaceGroups\":[],\"pendingHostSync\":false}");
+				const value = JSON.parse(readMigratedItem(storage, WORKSPACE_GROUPS_STORAGE_KEY) ?? "{\"version\":1,\"workspaceGroups\":[],\"pendingHostSync\":false}");
 				if (value === null || typeof value !== "object") return {
 					workspaceGroups: [],
 					pendingHostSync: false

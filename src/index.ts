@@ -11,8 +11,11 @@ import type { Context } from '@deepseek-ai/cordis'
  */
 export const inject = ['webServer']
 
-const ENDPOINT = '/api/dsh-codex-ui/preferences'
-const PREFERENCES_FILE = '.dsh-codex-ui-preferences.json'
+const API_BASE = '/api/dsh-best-workspace'
+const ENDPOINT = API_BASE + '/preferences'
+const PREFERENCES_FILE = '.dsh-best-workspace-preferences.json'
+/** 旧版本（codex-ui 时代）的存档位置；仅用于首次启动时迁移一次。 */
+const LEGACY_PREFERENCES_FILE = '.dsh-codex-ui-preferences.json'
 const MAX_BODY_BYTES = 32 * 1024
 
 interface WorkspaceGroup {
@@ -76,6 +79,16 @@ function parsePreferences(value: unknown): Omit<WorkspacePreferences, 'exists'> 
   return workspaceGroups === undefined ? undefined : { version: 2, pinnedWorkspaceIds, workspaceGroups }
 }
 
+/** 旧存档的绝对路径（同目录）。 */
+function legacyPreferencesPath(): string {
+  const profileDir = process.env.DSH_PROFILE_DIR ?? resolve(homedir(), '.dsh', 'profiles', 'web')
+  return resolve(profileDir, LEGACY_PREFERENCES_FILE)
+}
+
+/**
+ * 读取新存档；新存档缺失时尝试从旧存档迁移一次。
+ * 迁移只复制不动旧文件——降级回旧版本时仍能读到原始配置。
+ */
 async function readPreferences(): Promise<WorkspacePreferences> {
   const path = preferencesPath()
   try {
@@ -83,10 +96,22 @@ async function readPreferences(): Promise<WorkspacePreferences> {
     if (parsed === undefined) throw new Error('工作区偏好文件格式无效。')
     return { ...parsed, exists: true }
   } catch (error) {
-    if ((error as NodeJS.ErrnoException).code === 'ENOENT') {
-      return { version: 2, pinnedWorkspaceIds: [], workspaceGroups: [], exists: false }
-    }
-    throw error
+    if ((error as NodeJS.ErrnoException).code !== 'ENOENT') throw error
+    const migrated = await migrateLegacyPreferences()
+    return migrated ?? { version: 2, pinnedWorkspaceIds: [], workspaceGroups: [], exists: false }
+  }
+}
+
+/** 从旧存档读一次并写入新存档（内容非空才写）；旧文件保留不动。 */
+async function migrateLegacyPreferences(): Promise<WorkspacePreferences | undefined> {
+  try {
+    const legacy = parsePreferences(JSON.parse(await readFile(legacyPreferencesPath(), 'utf8')))
+    if (legacy === undefined) return undefined
+    if (legacy.pinnedWorkspaceIds.length === 0 && legacy.workspaceGroups.length === 0) return undefined
+    await writePreferences(legacy.pinnedWorkspaceIds, legacy.workspaceGroups)
+    return { ...legacy, exists: true }
+  } catch {
+    return undefined
   }
 }
 
