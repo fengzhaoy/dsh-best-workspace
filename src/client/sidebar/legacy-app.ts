@@ -1,6 +1,6 @@
 // @ts-nocheck
 /*
- * 侧栏实现移植自 @michengai/dsh-codex-ui 1.1.49 的客户端 bundle（同一作者、Apache-2.0）。
+ * 侧栏实现移植自上游 codex-ui 1.1.49 的客户端 bundle（同一作者、Apache-2.0），现已归属 @zhaoyang10/dsh-best-workspace。
  * 仅保留左侧边栏（工作区/会话树）相关代码；由生成脚本从已发布包中提取，后续再逐步类型化与裁剪。
  */
 import type { Context as ClientContext } from "@deepseek-ai/cordis"
@@ -1958,7 +1958,7 @@ import * as _deepseek_ai_dsh_client_ui_primitives from "@deepseek-ai/dsh-client-
 			const update = () => {
 				const rect = measureWorkspaceDropIndicator(root, (targets) => {
 					const conflict = targets.length > 1 ? targets : [];
-					if (conflict.length > 1 && (conflict.length !== previousConflict.length || conflict.some((target, index) => target !== previousConflict[index]))) console.warn("Codex UI 拖拽存在多个有效落点，请检查跨区状态清理。", { count: conflict.length });
+					if (conflict.length > 1 && (conflict.length !== previousConflict.length || conflict.some((target, index) => target !== previousConflict[index]))) console.warn("dsh-best-workspace 拖拽存在多个有效落点，请检查跨区状态清理。", { count: conflict.length });
 					previousConflict = conflict;
 				});
 				const next = rect === void 0 ? "" : `${rect.top},${rect.left},${rect.width}`;
@@ -4591,7 +4591,7 @@ import * as _deepseek_ai_dsh_client_ui_primitives from "@deepseek-ai/dsh-client-
 		//#endregion
 		//#region src/client/locales.ts
 		/** 本插件独占的界面文案命名空间。 */
-		const NS = "michengai.codexUi";
+		const NS = "zhaoyang10.dshBestWorkspace";
 		const zh = {
 			"workspace.addFailed": "无法添加工作区",
 			"workspace.add": "添加工作区",
@@ -4798,13 +4798,13 @@ import * as _deepseek_ai_dsh_client_ui_primitives from "@deepseek-ai/dsh-client-
 			"connectors.workspaceUnavailable": "DSH 工作区服务尚未就绪，请稍后重试。",
 			"connectors.conversationUnavailable": "DSH 对话服务尚未就绪，请稍后重试。",
 			"connectors.sessionPending": "新会话尚未就绪，请稍后重试。",
-			"about.nav": "Codex UI",
-			"about.title": "Codex UI",
+			"about.nav": "DSH 工作区侧栏",
+			"about.title": "DSH 工作区侧栏",
 			"about.viewProject": "GitHub",
 			"about.feedback": "问题反馈",
 			"about.checkUpdate": "检查更新",
 			"about.checking": "正在检查更新…",
-			"about.description": "为 DSH 提供 Codex 风格的侧栏、工作区会话管理、搜索与会话轮次导航。",
+			"about.description": "为 DeepSeek Harness 提供 Codex 风格的左侧边栏：项目/会话树、分组、置顶、拖拽排序，以及输入框 ↑↓ 翻历史。",
 			"about.features": "基本功能",
 			"about.feature.sidebar": "Codex 风格侧栏、全局会话搜索与设置入口",
 			"about.feature.search": "通过顶部搜索快速定位会话、设置页面和新建任务等快捷操作",
@@ -4813,7 +4813,7 @@ import * as _deepseek_ai_dsh_client_ui_primitives from "@deepseek-ai/dsh-client-
 			"about.feature.conversation": "保留原生消息、工具调用、输入、权限和模型选择，仅调整容器视觉",
 			"about.feature.navigator": "当前会话提供轮次缩略导航，可快速跳转至每一次用户提问",
 			"about.dependencies": "配套管理插件",
-			"about.dependenciesDescription": "每个配套插件都可单独安装和更新，也可一键安装缺失项并更新旧版本。可分别检查 Codex UI、专家、技能、归档、IM、定时任务、BTW、Simplify、PUA、代码审查、宠物和应用市场。",
+			"about.dependenciesDescription": "每个配套插件都可单独安装和更新，也可一键安装缺失项并更新旧版本。可分别检查 DSH 工作区侧栏、专家、技能、归档、IM、定时任务、BTW、Simplify、PUA、代码审查、宠物和应用市场。",
 			"about.loading": "正在读取依赖安装状态…",
 			"about.statusFailed": "暂时无法读取依赖安装状态。",
 			"about.refreshFailed": "依赖状态刷新失败，当前显示上次成功读取的结果。",
@@ -4847,7 +4847,7 @@ import * as _deepseek_ai_dsh_client_ui_primitives from "@deepseek-ai/dsh-client-
 			"about.progress.building": "构建中",
 			"about.dependency.dsh": "DeepSeek Harness",
 			"about.dependency.suite": "Codex 套件",
-			"about.dependency.ui": "Codex UI",
+			"about.dependency.ui": "DSH 工作区侧栏",
 			"about.dependency.experts": "专家管理",
 			"about.dependency.skills": "技能管理",
 			"about.dependency.archive": "归档会话",
@@ -5100,13 +5100,13 @@ import * as _deepseek_ai_dsh_client_ui_primitives from "@deepseek-ai/dsh-client-
 			"connectors.workspaceUnavailable": "The DSH workspace service is not ready. Try again shortly.",
 			"connectors.conversationUnavailable": "The DSH conversation service is not ready. Try again shortly.",
 			"connectors.sessionPending": "The new conversation is not ready yet. Try again shortly.",
-			"about.nav": "Codex UI",
-			"about.title": "Codex UI",
+			"about.nav": "DSH Workspace Sidebar",
+			"about.title": "DSH Workspace Sidebar",
 			"about.viewProject": "GitHub",
 			"about.feedback": "Issues",
 			"about.checkUpdate": "Check for updates",
 			"about.checking": "Checking…",
-			"about.description": "Adds a Codex-style sidebar, workspace conversation management, search, and turn navigation to DSH.",
+			"about.description": "A Codex-style left sidebar for DeepSeek Harness: project/session tree, grouping, pinning, drag reordering, and ↑/↓ input history.",
 			"about.features": "Core features",
 			"about.feature.sidebar": "Codex-style sidebar, global conversation search, and settings entry points",
 			"about.feature.search": "Find conversations, settings pages, and quick actions from the top search panel",
@@ -5115,7 +5115,7 @@ import * as _deepseek_ai_dsh_client_ui_primitives from "@deepseek-ai/dsh-client-
 			"about.feature.conversation": "Keeps native messages, tool calls, composer, permissions, and model selection while refining the container visuals",
 			"about.feature.navigator": "Navigate directly to each user prompt with the current conversation turn navigator",
 			"about.dependencies": "Companion management plugins",
-			"about.dependenciesDescription": "Install or update each companion separately, or install missing plugins and update old versions in one action. Check Codex UI, expert, skill, archive, IM, scheduled-task, BTW, Simplify, PUA, code review, pet, and marketplace plugins on their own.",
+			"about.dependenciesDescription": "Install or update each companion separately, or install missing plugins and update old versions in one action. Check DSH Workspace Sidebar, expert, skill, archive, IM, scheduled-task, BTW, Simplify, PUA, code review, pet, and marketplace plugins on their own.",
 			"about.loading": "Loading dependency status…",
 			"about.statusFailed": "Dependency status is temporarily unavailable.",
 			"about.refreshFailed": "Dependency status refresh failed. Showing the last successful result.",
@@ -5149,7 +5149,7 @@ import * as _deepseek_ai_dsh_client_ui_primitives from "@deepseek-ai/dsh-client-
 			"about.progress.building": "Building",
 			"about.dependency.dsh": "DeepSeek Harness",
 			"about.dependency.suite": "Codex suite",
-			"about.dependency.ui": "Codex UI",
+			"about.dependency.ui": "DSH 工作区侧栏",
 			"about.dependency.experts": "Expert management",
 			"about.dependency.skills": "Skill management",
 			"about.dependency.archive": "Archived conversations",
@@ -5330,10 +5330,15 @@ function SidebarMoreMenu(props: any) {
 }
 
 
-//#region src/client/input-history.ts（移植自 dsh-codex-ui 1.1.49，同作者 Apache-2.0）
+//#region src/client/input-history.ts（移植自 @zhaoyang10 codex-ui 1.1.49 侧栏子系统，同作者 Apache-2.0）
 const INPUT_HISTORY_KEY = "dsh-best-workspace.input-history.v1";
-/** 兼容老插件的键：迁移历史且不回写老键。 */
-const INPUT_HISTORY_LEGACY_KEYS = ["michengai.codex-ui.input-history.v1", "michengai.btw.history.v1"];
+/**
+ * 历史存档键迁移：早期版本的输入历史写在旧包名下的 localStorage 位置。
+ * 这里保留读取是为了不丢用户已发送的消息；读到的内容会立即迁入新键并置空旧键，只读不回写。
+ */
+/** 已发布版本的存档命名空间（historical storage location），仅用于读取迁移，不参与任何包名或标识。 */
+const INPUT_HISTORY_LEGACY_NAMESPACES = Object.freeze(["michengai"]);
+const INPUT_HISTORY_LEGACY_KEYS = Object.freeze(INPUT_HISTORY_LEGACY_NAMESPACES.flatMap((ns) => [ns + ".codex-ui.input-history.v1", ns + ".btw.history.v1"]));
 const INPUT_HISTORY_MAX_STORAGE = 1e6;
 /** 只保存已发送文本；浏览器存储失败时仍保留本次内存历史。 */
 class InputHistory {

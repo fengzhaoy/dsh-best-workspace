@@ -1,6 +1,6 @@
 {
   "meta": {
-    "title": "Codex Sidebar",
-    "description": "A Codex-style left sidebar with a custom workspace/session tree: grouping, pinning, expand/collapse, drag reordering, plus session rename, unread, archive, delete, and context menus."
+    "title": "DSH Workspace Sidebar",
+    "description": "A Codex-style left sidebar for DeepSeek Harness: a custom project/session tree with grouping, pinning, collapse, drag reordering, and ↑/↓ input history, plus session rename, unread, archive, delete, and context menus."
   }
 }

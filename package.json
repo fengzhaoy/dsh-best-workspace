@@ -1,7 +1,7 @@
 {
   "name": "@zhaoyang10/dsh-best-workspace",
   "version": "1.1.49",
-  "description": "DSH Best Workspace — 为 DeepSeek Harness 提供 Codex 风格的左侧边栏：自绘工作区/会话树，支持重命名、置顶、未读、归档、删除与右键菜单 · A Codex-style left sidebar for DSH with a custom workspace/session tree: rename, pin, unread, archive, delete, and context menus",
+  "description": "DSH Best Workspace — 为 DeepSeek Harness 提供 Codex 风格的左侧边栏（自绘项目/会话树，支持分组、置顶、拖拽排序、右键菜单）与输入框 ↑↓ 翻历史 · A Codex-style left sidebar for DSH with a project/session tree plus ↑/↓ input history",
   "license": "Apache-2.0",
   "publishConfig": {
     "access": "public",
