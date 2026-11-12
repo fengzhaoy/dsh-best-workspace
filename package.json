@@ -39,6 +39,7 @@
     "assets",
     "locale",
     "cordis.patch.yml",
+    "screenshots.json",
     "LICENSE",
     "README.md"
   ],

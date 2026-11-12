@@ -1,5 +1,32 @@
+# 依赖
 node_modules
 /.pnpm-store/
-.codegraph/
+
+# macOS / Windows 系统文件（Finder、资源管理器生成的元数据）
+.DS_Store
+**/.DS_Store
+._*
+Thumbs.db
+Desktop.ini
+$RECYCLE.BIN/
+
+# 编辑器与 IDE
+.idea/
+.vscode/
+*.swp
+*.swo
+*~
+
+# 构建与测试产物（lib/ 是刻意提交的预构建产物，CI 会校验其与源码一致，不要忽略）
+dist/
+coverage/
+*.tsbuildinfo
+.verify-tmp/
+*.log
+
+# 打包产物
 *.tgz
+
+# 工具生成的本地状态
+.codegraph/
 docs/
