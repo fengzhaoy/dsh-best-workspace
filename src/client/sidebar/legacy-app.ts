@@ -1181,7 +1181,10 @@ import * as _deepseek_ai_dsh_client_ui_primitives from "@deepseek-ai/dsh-client-
 		function savePinnedWorkspaceIds(storage, ids) {
 			if (storage === void 0) return;
 			try {
-				storage.setItem(PINNED_WORKSPACES_STORAGE_KEY, JSON.stringify(normalizePinnedWorkspaceIds(ids)));
+				const normalized = normalizePinnedWorkspaceIds(ids);
+				// 不允许用空列表覆盖已有缓存：空结果更可能是「尚未加载」而非「用户全删」。
+				if (normalized.length === 0 && (storage.getItem(PINNED_WORKSPACES_STORAGE_KEY) ?? "") !== "") return;
+				storage.setItem(PINNED_WORKSPACES_STORAGE_KEY, JSON.stringify(normalized));
 			} catch {}
 		}
 		/** 分组缓存用于首帧恢复和 Host 暂时不可用时兜底，并记录尚未完成的 Host 迁移。 */
@@ -1217,6 +1220,9 @@ import * as _deepseek_ai_dsh_client_ui_primitives from "@deepseek-ai/dsh-client-
 			if (storage === void 0) return;
 			const workspaceGroups = parseStoredWorkspaceGroups([...groups]);
 			if (workspaceGroups === void 0) return;
+			// 空分组成员的缓存不得覆盖已有内容（同 savePinnedWorkspaceIds：空更可能是未加载）。
+			const allEmpty = workspaceGroups.length > 0 && workspaceGroups.every((group) => group.workspaceIds.length === 0);
+			if (allEmpty && (storage.getItem(WORKSPACE_GROUPS_STORAGE_KEY) ?? "").includes('"workspaceIds":["')) return;
 			try {
 				storage.setItem(WORKSPACE_GROUPS_STORAGE_KEY, JSON.stringify({
 					version: 1,
@@ -2286,6 +2292,8 @@ import * as _deepseek_ai_dsh_client_ui_primitives from "@deepseek-ai/dsh-client-
 			const pinnedHostHydratedRef = (0, react.useRef)(false);
 			const pinnedHostDirtyRef = (0, react.useRef)(false);
 			const pinnedHostSkipWriteRef = (0, react.useRef)();
+			/** 用户显式清空（取消最后一个置顶/移除最后一个分组成员）的时间戳；只有它能放行空写入。 */
+			const userClearAtRef = (0, react.useRef)(0);
 			const pinnedHostWriteRef = (0, react.useRef)(Promise.resolve());
 			const [preferencesFailure, setPreferencesFailure] = (0, react.useState)();
 			const workspaceBaselineRef = (0, react.useRef)({
@@ -2296,7 +2304,14 @@ import * as _deepseek_ai_dsh_client_ui_primitives from "@deepseek-ai/dsh-client-
 				ready: baselinesReady,
 				validIds: workspaces.items.map((workspace) => String(workspace.workspaceId))
 			};
-			const queuePinnedHostWrite = (ids, groups) => {
+			/**
+			 * 只回写「用户真正改过」的差异。
+			 * 侧栏组件可能被其他插件包裹（如 @michengai/dsh-im-connect 的频道/任务 tab 切换）
+			 * 而整体卸载重挂载：此时 refs 全部重置，hydrate 尚未完成就地写入会把空数组推给宿主，
+			 * 清空用户的置顶与分组。因此卸载期间的状态一律视为未就绪，丢弃。
+			 */
+			const queuePinnedHostWrite = (ids, groups, options) => {
+				if (options?.userDriven !== true) return;
 				const snapshot = {
 					pinnedWorkspaceIds: [...ids],
 					workspaceGroups: groups.map((group) => ({
@@ -2305,6 +2320,30 @@ import * as _deepseek_ai_dsh_client_ui_primitives from "@deepseek-ai/dsh-client-
 					}))
 				};
 				const pending = pinnedHostWriteRef.current.then(async () => {
+					/**
+					 * 最后一道防线：用「全空」覆盖宿主已有内容几乎总是误操作的结果
+					 * （组件重挂载 / 水合未完成 / 宿主基线未就绪）。只有用户确实把最后一项
+					 * 取消置顶、且没有分组时才允许写入，其余情况丢弃并记录，绝不静默清空。
+					 */
+					const incomingEmpty = snapshot.pinnedWorkspaceIds.length === 0 && snapshot.workspaceGroups.every((group) => group.workspaceIds.length === 0);
+					if (incomingEmpty) {
+						let stored;
+						try {
+							stored = await readHostWorkspacePreferences();
+						} catch {
+							return;
+						}
+						const storedEmpty = stored.pinnedWorkspaceIds.length === 0 && stored.workspaceGroups.every((group) => group.workspaceIds.length === 0);
+						// 5 秒内的用户操作视为真实清空，放行；超过则是重挂载等被动路径，拒绝。
+						const userInitiated = Date.now() - userClearAtRef.current < 5e3;
+						if (!storedEmpty && !userInitiated) {
+							console.warn("[dsh-best-workspace] 已阻止一次空配置回写（疑似重挂载误操作）", {
+								storedPins: stored.pinnedWorkspaceIds.length,
+								storedGroups: stored.workspaceGroups.map((group) => group.title + ":" + group.workspaceIds.length)
+							});
+							return;
+						}
+					}
 					await writeHostWorkspacePreferences(snapshot.pinnedWorkspaceIds, snapshot.workspaceGroups);
 					setPreferencesFailure(void 0);
 					if (!pinnedHostSupportsWorkspaceGroupsRef.current) return;
@@ -2317,6 +2356,7 @@ import * as _deepseek_ai_dsh_client_ui_primitives from "@deepseek-ai/dsh-client-
 				});
 			};
 			const setPinnedWorkspaceIds = (update) => {
+				userClearAtRef.current = Date.now();
 				pinnedHostDirtyRef.current = true;
 				const current = pinnedWorkspaceIdsRef.current;
 				const next = typeof update === "function" ? update(current) : update;
@@ -2324,6 +2364,7 @@ import * as _deepseek_ai_dsh_client_ui_primitives from "@deepseek-ai/dsh-client-
 				setPinnedWorkspaceIdsState(next);
 			};
 			const setWorkspaceGroups = (update) => {
+				userClearAtRef.current = Date.now();
 				const current = workspaceGroupsRef.current;
 				const next = typeof update === "function" ? update(current) : update;
 				pinnedHostDirtyRef.current = true;
@@ -2386,13 +2427,15 @@ import * as _deepseek_ai_dsh_client_ui_primitives from "@deepseek-ai/dsh-client-
 				writeTreeExpansionState(storage$1(), WORKSPACE_EXPANSION_STORAGE_KEY, expanded);
 			}, [expanded]);
 			(0, react.useEffect)(() => {
+				// 只有用户真实操作（拖拽/菜单）才更新本地缓存与宿主，重挂载时的初始渲染一律不写。
+				if (!pinnedHostDirtyRef.current) return;
 				savePinnedWorkspaceIds(storage$1(), pinnedWorkspaceIds);
 				saveWorkspaceGroupsCache(storage$1(), workspaceGroups, workspaceGroupsPendingHostSyncRef.current);
 				if (!pinnedHostHydratedRef.current) return;
 				const skippedHydration = pinnedHostSkipWriteRef.current;
 				pinnedHostSkipWriteRef.current = void 0;
 				if (skippedHydration !== void 0 && sameIds(skippedHydration.pinnedWorkspaceIds, pinnedWorkspaceIds) && sameWorkspaceGroups(skippedHydration.workspaceGroups, workspaceGroups)) return;
-				queuePinnedHostWrite(pinnedWorkspaceIds, workspaceGroups);
+				queuePinnedHostWrite(pinnedWorkspaceIds, workspaceGroups, { userDriven: true });
 			}, [pinnedWorkspaceIds, workspaceGroups]);
 			(0, react.useEffect)(() => {
 				let alive = true;
@@ -2425,7 +2468,13 @@ import * as _deepseek_ai_dsh_client_ui_primitives from "@deepseek-ai/dsh-client-
 						setWorkspaceGroupsState(groups);
 					}
 					savePinnedWorkspaceIds(storage$1(), ids);
-					if (writeHost) queuePinnedHostWrite(ids, groups);
+					/**
+					 * 水合阶段的回写只在「宿主确实缺数据」时发生（首次迁移），
+					 * 且必须以空内容为前置条件——否则任何一次重挂载（如 im-connect 切 tab
+					 * 导致本组件卸载重建）都可能把剪枝后的空结果推给宿主。
+					 */
+					const hostEmpty = !host.exists || (host.pinnedWorkspaceIds.length === 0 && host.workspaceGroups.length === 0);
+					if (writeHost && hostEmpty && (ids.length > 0 || groups.length > 0)) queuePinnedHostWrite(ids, groups, { userDriven: true });
 				}).catch((reason) => {
 					if (!alive) return;
 					setPreferencesFailure(reason);
