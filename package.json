@@ -61,6 +61,7 @@
     }
   },
   "scripts": {
+    "bundle": "tsc --noEmit && tsdown",
     "build": "tsc --noEmit && tsdown",
     "typecheck": "tsc --noEmit"
   },
