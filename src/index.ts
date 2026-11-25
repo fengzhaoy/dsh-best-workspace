@@ -157,29 +157,115 @@ function send(response: ServerResponse, status: number, body?: unknown): void {
   response.end(body === undefined ? undefined : JSON.stringify(body))
 }
 
-/** 复用宿主 connection 服务的 Host/Origin/登录校验；不可用时拒绝，而不是放行。 */
+/**
+ * 宿主路由准入策略：anonymous 表示「WebServer 层不再要求 Peer」。
+ * 本端点自己调用 connection 做 Host/Origin/登录校验，以便把 401/403 这类
+ * 真实状态码反馈给侧栏。DSH 0.2.3 起 WebRoute.auth 默认 required：没有 Peer
+ * 时 WebServer 直接 503，侧栏只剩「服务暂不可用」，看不到「请先登录」。
+ */
+const ROUTE_AUTH = 'anonymous'
+
+/**
+ * 复用宿主 connection 服务做 Host/Origin/登录校验；不可用时拒绝，而不是放行。
+ *
+ * 两代 API 并存：
+ * - 0.2.3+：connection.admit(request) 返回 { peer } 或 { rejection }
+ * - 更早：connection.requestRejection(request) 返回 rejection | undefined
+ */
 function authorize(ctx: Context, request: IncomingMessage, response: ServerResponse): boolean {
-  try {
-    const connection = (ctx as any).get?.('connection')
-    if (typeof connection?.requestRejection !== 'function') {
-      send(response, 503, { error: '宿主认证服务暂不可用。' })
-      return false
+  /**
+   * 免 inject 读取 connection：cordis 的 ctx Proxy 不允许访问未在 inject 声明的属性
+   * （ctx.get 只会读到 declared inject 的服务），用 reflect.get 读取，未提供时返回 undefined。
+   * 每次请求现读：connection 可能在本插件 apply 之后才挂上。
+   */
+  const connection = readService(ctx, 'connection')
+  /**
+   * 刻意不走 connection.admit()。
+   *
+   * DSH 0.2.3 随 cordis 4.2 收紧后，HostConnectionService 构造函数里的
+   * this.authentication = ctx['connection.authentication'] 在 inject=[] 的上下文里会抛
+   * cannot get property "connection.authentication" without inject，于是 admit()
+   * 对任何调用方都必然失败（宿主自身缺陷，插件无法修复）。
+   *
+   * 这里改用两条互不依赖的公开能力拼出同样的判定：
+   *  1) isTrustedRequest() —— Host / Origin 来源围栏，不触碰 authentication；
+   *  2) reflect.get('connection.authentication') —— 真正的凭据校验器。
+   */
+  const facts: any = {
+    headers: request.headers,
+    method: request.method,
+    url: new URL(request.url ?? '/', 'http://' + (request.headers.host ?? '127.0.0.1')),
+    transport: 'http',
+    signal: undefined,
+    socket: request.socket,
+  }
+  if (typeof connection?.isTrustedRequest === 'function') {
+    let trusted = false
+    try {
+      trusted = connection.isTrustedRequest(facts) === true
+    } catch (error) {
+      ctx.logger?.warn?.('dsh-best-workspace: isTrustedRequest 失败', error)
     }
-    const rejection = connection.requestRejection(request)
-    if (rejection !== undefined) {
-      send(response, rejection, { error: rejection === 401 ? '请先登录 DSH。' : '已拒绝不可信或跨站请求。' })
-      return false
+    if (!trusted) return reject(response, 403)
+
+    const authentication = readService(ctx, 'connection.authentication')
+    if (typeof authentication?.authenticate === 'function') {
+      let verdict: any
+      try {
+        verdict = authentication.authenticate(facts)
+      } catch (error) {
+        ctx.logger?.warn?.('dsh-best-workspace: authenticate 失败', error)
+        const detail = error instanceof Error ? error.message : String(error)
+        send(response, 503, { error: '宿主认证服务暂不可用（authenticate 失败）。', detail })
+        return false
+      }
+      if (verdict !== null && typeof verdict?.rejection === 'number') {
+        return reject(response, verdict.rejection)
+      }
+      return true
     }
-    return true
-  } catch {
-    send(response, 503, { error: '宿主认证服务暂不可用。' })
+    // 鉴权器尚未就绪（host-authentication-token 的 async apply 仍在 await）。
+    ctx.logger?.warn?.('dsh-best-workspace: connection.authentication 尚未就绪')
+    send(response, 503, { error: '宿主认证服务尚未就绪，请稍后重试。' })
     return false
   }
+  if (typeof connection?.requestRejection === 'function') {
+    try {
+      const rejection = connection.requestRejection(request)
+      return rejection === undefined ? true : reject(response, rejection)
+    } catch (error) {
+      ctx.logger?.warn?.('dsh-best-workspace: connection.requestRejection 失败', error)
+      send(response, 503, { error: '宿主认证服务暂不可用（requestRejection 失败）。' })
+      return false
+    }
+  }
+  ctx.logger?.warn?.('dsh-best-workspace: connection 服务不可用', {
+    hasConnection: connection !== undefined,
+    admitType: typeof connection?.admit,
+  })
+  send(response, 503, { error: '宿主认证服务暂不可用（未取到 connection）。' })
+  return false
+}
+
+/** 反射读取宿主服务，绕过 cordis 的 inject 访问限制；不可用时返回 undefined。 */
+function readService(ctx: Context, name: string): any {
+  try {
+    if (typeof (ctx as any).reflect?.get === 'function') return (ctx as any).reflect.get(name)
+    return (ctx as any)[name]
+  } catch {
+    return undefined
+  }
+}
+
+/** 把宿主的拒绝码翻成侧栏能识别的业务错误。 */
+function reject(response: ServerResponse, rejection: number): false {
+  send(response, rejection, { error: rejection === 401 ? '请先登录 DSH。' : '已拒绝不可信或跨站请求。' })
+  return false
 }
 
 export function apply(ctx: Context): void {
   ctx.effect(() => {
-    const webServer = (ctx as any).get?.('webServer')
+    const webServer = readService(ctx, 'webServer')
     if (typeof webServer?.register !== 'function') {
       ctx.logger?.warn?.('dsh-best-workspace: 缺少 webServer.register，工作区偏好端点未注册。')
       return () => {}
@@ -187,9 +273,13 @@ export function apply(ctx: Context): void {
     const dispose = webServer.register({
       kind: 'exact',
       path: ENDPOINT,
+      auth: ROUTE_AUTH,
       handler: async (request: IncomingMessage, response: ServerResponse) => {
-        if (!authorize(ctx, request, response)) return
+        // WebServer 的 handler 调用只有 try/finally 没有 catch：任何漏出的异常都会被
+        // 收敛成空的 400，侧栏只会看到「偏好尚未同步」而拿不到原因。这里全包住。
         try {
+          if (!authorize(ctx, request, response)) return
+          try {
           if (request.method === 'GET' || request.method === 'HEAD') {
             const preferences = await readPreferences()
             if (request.method === 'HEAD') {
@@ -228,6 +318,16 @@ export function apply(ctx: Context): void {
           }
           ctx.logger?.warn?.('dsh-best-workspace: 工作区偏好端点失败', error)
           send(response, 503, { error: '工作区偏好暂不可用。' })
+          }
+        } catch (error) {
+          // 兜底：鉴权或任何未预期异常都不能变成空的 400。
+          ctx.logger?.warn?.('dsh-best-workspace: 端点未预期异常', error)
+          const detail = error instanceof Error ? error.message : String(error)
+          if (response.headersSent) {
+            response.end()
+            return
+          }
+          send(response, 503, { error: '工作区偏好端点异常。', detail })
         }
       },
     })
